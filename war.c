@@ -1,135 +1,85 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
-#define MAX_COMPONENTES 20
+#define TAM_MAX 5 // tamanho fixo da fila
 
-// Estrutura que representa um componente da torre
+// Estrutura que representa uma peça do Tetris
 typedef struct {
-    char nome[30];
-    char tipo[20];
-    int prioridade; // 1 (mais alta) a 10 (mais baixa)
-} Componente;
+    char nome; // tipo da peça: 'I', 'O', 'T', 'L'
+    int id;    // identificador único da peça
+} Peca;
 
-// Protótipos
-void cadastroComponentes(Componente comp[], int *n);
-void mostrarComponentes(Componente comp[], int n);
-void bubbleSortNome(Componente comp[], int n, long *comparacoes);
-void insertionSortTipo(Componente comp[], int n, long *comparacoes);
-void selectionSortPrioridade(Componente comp[], int n, long *comparacoes);
-int buscaBinariaPorNome(Componente comp[], int n, const char chave[], long *comparacoes);
-double medirTempo(void (*algoritmo)(Componente*, int, long*), Componente comp[], int n, long *comparacoes);
-void copiarVetor(Componente dest[], Componente src[], int n);
-void limparString(char s[], int tamanho);
+// Estrutura da fila circular
+typedef struct {
+    Peca pecas[TAM_MAX];
+    int frente; // índice da primeira peça
+    int tras;   // índice do último elemento inserido
+    int qtd;    // quantidade atual de peças na fila
+} Fila;
 
-// ------------------- Função main -------------------
+// ----------- Protótipos -----------
+void inicializarFila(Fila *f);
+int filaVazia(Fila *f);
+int filaCheia(Fila *f);
+Peca gerarPeca(int id);
+void enfileirar(Fila *f, Peca p);
+Peca desenfileirar(Fila *f);
+void exibirFila(Fila *f);
+void menu();
+
+// ----------- Função principal -----------
 int main() {
-    Componente componentes[MAX_COMPONENTES];
-    int n = 0;
+    Fila fila;
+    inicializarFila(&fila);
+    srand((unsigned) time(NULL));
+
+    // Inicializa com 5 peças
+    int idAtual = 0;
+    for (int i = 0; i < TAM_MAX; i++) {
+        enfileirar(&fila, gerarPeca(idAtual++));
+    }
+
     int opcao;
-    srand((unsigned)time(NULL));
-
-    printf("=== Módulo de Priorização e Montagem da Torre de Fuga ===\n");
-
-    // Cadastro inicial (opcional) — o jogador pode cadastrar até 20 componentes
-    cadastroComponentes(componentes, &n);
-
-    // Vetor auxiliar para permitir ordenar sem perder entrada original
-    Componente aux[MAX_COMPONENTES];
-
     do {
-        printf("\n--- MENU ---\n");
-        printf("1 - Listar componentes\n");
-        printf("2 - Adicionar componentes (mais)\n");
-        printf("3 - Ordenar por NOME (Bubble Sort)  -> rápido para estudar comparações\n");
-        printf("4 - Ordenar por TIPO (Insertion Sort)\n");
-        printf("5 - Ordenar por PRIORIDADE (Selection Sort)\n");
-        printf("6 - Busca binária por NOME (só após ordenar por NOME)\n");
-        printf("0 - Sair\n");
-        printf("Escolha uma opção: ");
-        if (scanf("%d", &opcao) != 1) { // valida entrada numérica
-            while (getchar() != '\n'); // limpa
+        printf("\n===== TETRIS STACK: FILA DE PEÇAS FUTURAS =====\n");
+        exibirFila(&fila);
+        menu();
+
+        printf("\nEscolha uma opção: ");
+        if (scanf("%d", &opcao) != 1) {
+            while (getchar() != '\n'); // limpa buffer
             printf("Entrada inválida.\n");
             opcao = -1;
             continue;
         }
-        getchar(); // limpa \n
 
-        if (opcao == 1) {
-            mostrarComponentes(componentes, n);
-        }
-        else if (opcao == 2) {
-            cadastroComponentes(componentes, &n);
-        }
-        else if (opcao == 3) {
-            if (n == 0) { printf("Nenhum componente cadastrado.\n"); continue; }
-            copiarVetor(aux, componentes, n);
-            long compar = 0;
-            double tempo = medirTempo(bubbleSortNome, aux, n, &compar);
-            printf("\n=> Resultado da ordenação por NOME (Bubble Sort):\n");
-            mostrarComponentes(aux, n);
-            printf("Comparações: %ld | Tempo: %.3f ms\n", compar, tempo * 1000.0);
-            // copia o resultado ordenado de volta para componentes (opcional)
-            copiarVetor(componentes, aux, n);
-        }
-        else if (opcao == 4) {
-            if (n == 0) { printf("Nenhum componente cadastrado.\n"); continue; }
-            copiarVetor(aux, componentes, n);
-            long compar = 0;
-            double tempo = medirTempo(insertionSortTipo, aux, n, &compar);
-            printf("\n=> Resultado da ordenação por TIPO (Insertion Sort):\n");
-            mostrarComponentes(aux, n);
-            printf("Comparações: %ld | Tempo: %.3f ms\n", compar, tempo * 1000.0);
-            copiarVetor(componentes, aux, n);
-        }
-        else if (opcao == 5) {
-            if (n == 0) { printf("Nenhum componente cadastrado.\n"); continue; }
-            copiarVetor(aux, componentes, n);
-            long compar = 0;
-            double tempo = medirTempo(selectionSortPrioridade, aux, n, &compar);
-            printf("\n=> Resultado da ordenação por PRIORIDADE (Selection Sort):\n");
-            mostrarComponentes(aux, n);
-            printf("Comparações: %ld | Tempo: %.3f ms\n", compar, tempo * 1000.0);
-            copiarVetor(componentes, aux, n);
-        }
-        else if (opcao == 6) {
-            if (n == 0) { printf("Nenhum componente cadastrado.\n"); continue; }
-            // Para busca binária precisa estar ordenado por nome.
-            printf("ATENÇÃO: a busca binária exige que o vetor esteja ordenado por NOME.\n");
-            printf("Deseja ordenar por NOME agora com Bubble Sort antes da busca? (s/n): ");
-            char resp = getchar();
-            while (getchar() != '\n');
-            if (resp == 's' || resp == 'S') {
-                // ordena o vetor principal
-                long comparSort = 0;
-                double t = medirTempo(bubbleSortNome, componentes, n, &comparSort);
-                printf("Vetor ordenado por NOME. (Comparações: %ld | Tempo: %.3f ms)\n", comparSort, t*1000.0);
-            } else {
-                printf("Preservando ordem atual — se não estiver ordenado, busca pode falhar.\n");
-            }
+        switch (opcao) {
+            case 1: // Jogar peça
+                if (filaVazia(&fila)) {
+                    printf("⚠️  Nenhuma peça disponível para jogar.\n");
+                } else {
+                    Peca jogada = desenfileirar(&fila);
+                    printf("🧩 Peça jogada: [%c %d]\n", jogada.nome, jogada.id);
+                }
+                break;
 
-            char chave[30];
-            printf("Digite o nome do componente-chave a buscar: ");
-            fgets(chave, sizeof(chave), stdin);
-            limparString(chave, sizeof(chave));
+            case 2: // Inserir nova peça
+                if (filaCheia(&fila)) {
+                    printf("⚠️  Fila cheia! Não é possível adicionar nova peça.\n");
+                } else {
+                    Peca nova = gerarPeca(idAtual++);
+                    enfileirar(&fila, nova);
+                    printf("✅ Nova peça gerada e adicionada: [%c %d]\n", nova.nome, nova.id);
+                }
+                break;
 
-            long comparBin = 0;
-            int pos = buscaBinariaPorNome(componentes, n, chave, &comparBin);
-            if (pos != -1) {
-                printf("✅ Componente-chave encontrado na posição %d:\n", pos + 1);
-                printf("Nome: %s | Tipo: %s | Prioridade: %d\n",
-                       componentes[pos].nome, componentes[pos].tipo, componentes[pos].prioridade);
-            } else {
-                printf("❌ Componente-chave NÃO encontrado.\n");
-            }
-            printf("Comparações (busca binária): %ld\n", comparBin);
-        }
-        else if (opcao == 0) {
-            printf("Encerrando módulo. Boa sorte na fuga!\n");
-        }
-        else {
-            printf("Opção inválida. Tente de novo.\n");
+            case 0:
+                printf("👋 Encerrando simulação. Até a próxima partida!\n");
+                break;
+
+            default:
+                printf("Opção inválida. Tente novamente.\n");
         }
 
     } while (opcao != 0);
@@ -137,154 +87,78 @@ int main() {
     return 0;
 }
 
-// ------------------- Funções auxiliares -------------------
+// ----------- Implementação das funções -----------
 
-// Cadastro de componentes (adiciona até MAX_COMPONENTES)
-void cadastroComponentes(Componente comp[], int *n) {
-    int restantes = MAX_COMPONENTES - *n;
-    if (restantes <= 0) {
-        printf("Limite de componentes atingido (%d).\n", MAX_COMPONENTES);
+// Inicializa a fila
+void inicializarFila(Fila *f) {
+    f->frente = 0;
+    f->tras = -1;
+    f->qtd = 0;
+}
+
+// Verifica se a fila está vazia
+int filaVazia(Fila *f) {
+    return f->qtd == 0;
+}
+
+// Verifica se a fila está cheia
+int filaCheia(Fila *f) {
+    return f->qtd == TAM_MAX;
+}
+
+// Gera uma nova peça aleatória
+Peca gerarPeca(int id) {
+    Peca p;
+    char tipos[] = {'I', 'O', 'T', 'L'};
+    p.nome = tipos[rand() % 4];
+    p.id = id;
+    return p;
+}
+
+// Insere uma nova peça ao final da fila (enqueue)
+void enfileirar(Fila *f, Peca p) {
+    if (filaCheia(f)) {
+        printf("Erro: fila cheia. Não foi possível enfileirar.\n");
+        return;
+    }
+    f->tras = (f->tras + 1) % TAM_MAX;
+    f->pecas[f->tras] = p;
+    f->qtd++;
+}
+
+// Remove a peça da frente da fila (dequeue)
+Peca desenfileirar(Fila *f) {
+    Peca p = {'-', -1}; // valor padrão, caso esteja vazia
+    if (filaVazia(f)) {
+        printf("Erro: fila vazia. Não foi possível desenfileirar.\n");
+        return p;
+    }
+    p = f->pecas[f->frente];
+    f->frente = (f->frente + 1) % TAM_MAX;
+    f->qtd--;
+    return p;
+}
+
+// Exibe o estado atual da fila
+void exibirFila(Fila *f) {
+    printf("\nFila de peças (%d/%d): ", f->qtd, TAM_MAX);
+    if (filaVazia(f)) {
+        printf("[vazia]\n");
         return;
     }
 
-    int qtd;
-    printf("Quantos componentes deseja cadastrar? (máx %d): ", restantes);
-    if (scanf("%d", &qtd) != 1) {
-        while (getchar() != '\n');
-        printf("Entrada inválida.\n");
-        return;
+    int i = f->frente;
+    for (int c = 0; c < f->qtd; c++) {
+        printf("[%c %d] ", f->pecas[i].nome, f->pecas[i].id);
+        i = (i + 1) % TAM_MAX;
     }
-    getchar();
-
-    if (qtd < 1) { printf("Nenhum componente cadastrado.\n"); return; }
-    if (qtd > restantes) qtd = restantes;
-
-    for (int i = 0; i < qtd; i++) {
-        printf("\n--- Componente %d ---\n", (*n) + 1);
-        printf("Nome: ");
-        fgets(comp[*n].nome, sizeof(comp[*n].nome), stdin);
-        limparString(comp[*n].nome, sizeof(comp[*n].nome));
-
-        printf("Tipo (ex: controle, suporte, propulsao): ");
-        fgets(comp[*n].tipo, sizeof(comp[*n].tipo), stdin);
-        limparString(comp[*n].tipo, sizeof(comp[*n].tipo));
-
-        int pri;
-        do {
-            printf("Prioridade (1 = mais alta ... 10 = mais baixa): ");
-            if (scanf("%d", &pri) != 1) { while (getchar() != '\n'); pri = -1; }
-            getchar();
-            if (pri < 1 || pri > 10) printf("Valor inválido. Insira entre 1 e 10.\n");
-        } while (pri < 1 || pri > 10);
-
-        comp[*n].prioridade = pri;
-        (*n)++;
-    }
-    printf("\n✅ Cadastro concluído. Total de componentes: %d\n", *n);
+    printf("\n");
 }
 
-// Mostra vetor de componentes formatado
-void mostrarComponentes(Componente comp[], int n) {
-    if (n == 0) {
-        printf("Nenhum componente cadastrado.\n");
-        return;
-    }
-    printf("\n--- Componentes (total: %d) ---\n", n);
-    printf("%-3s | %-25s | %-12s | %-9s\n", "N", "NOME", "TIPO", "PRIORIDADE");
-    printf("----------------------------------------------------------------\n");
-    for (int i = 0; i < n; i++) {
-        printf("%-3d | %-25s | %-12s | %-9d\n",
-               i + 1, comp[i].nome, comp[i].tipo, comp[i].prioridade);
-    }
-}
-
-// Bubble sort por nome (string). Conta comparações via ponteiro comparacoes.
-void bubbleSortNome(Componente comp[], int n, long *comparacoes) {
-    *comparacoes = 0;
-    for (int i = 0; i < n - 1; i++) {
-        int trocou = 0;
-        for (int j = 0; j < n - i - 1; j++) {
-            (*comparacoes)++;
-            if (strcmp(comp[j].nome, comp[j+1].nome) > 0) {
-                Componente tmp = comp[j];
-                comp[j] = comp[j+1];
-                comp[j+1] = tmp;
-                trocou = 1;
-            }
-        }
-        if (!trocou) break;
-    }
-}
-
-// Insertion sort por tipo (string). Conta comparações via ponteiro comparacoes.
-void insertionSortTipo(Componente comp[], int n, long *comparacoes) {
-    *comparacoes = 0;
-    for (int i = 1; i < n; i++) {
-        Componente chave = comp[i];
-        int j = i - 1;
-        while (j >= 0) {
-            (*comparacoes)++;
-            if (strcmp(comp[j].tipo, chave.tipo) > 0) {
-                comp[j+1] = comp[j];
-                j--;
-            } else break;
-        }
-        comp[j+1] = chave;
-    }
-}
-
-// Selection sort por prioridade (int). Conta comparações via ponteiro comparacoes.
-void selectionSortPrioridade(Componente comp[], int n, long *comparacoes) {
-    *comparacoes = 0;
-    for (int i = 0; i < n - 1; i++) {
-        int idxMin = i;
-        for (int j = i + 1; j < n; j++) {
-            (*comparacoes)++;
-            if (comp[j].prioridade < comp[idxMin].prioridade) {
-                idxMin = j;
-            }
-        }
-        if (idxMin != i) {
-            Componente tmp = comp[i];
-            comp[i] = comp[idxMin];
-            comp[idxMin] = tmp;
-        }
-    }
-}
-
-// Busca binária por nome (assume vetor ordenado por nome).
-// Retorna índice ou -1. Também conta comparações por ponteiro comparacoes.
-int buscaBinariaPorNome(Componente comp[], int n, const char chave[], long *comparacoes) {
-    int inicio = 0, fim = n - 1;
-    *comparacoes = 0;
-    while (inicio <= fim) {
-        int meio = (inicio + fim) / 2;
-        (*comparacoes)++;
-        int cmp = strcmp(comp[meio].nome, chave);
-        if (cmp == 0) return meio;
-        else if (cmp < 0) inicio = meio + 1;
-        else fim = meio - 1;
-    }
-    return -1;
-}
-
-// Mede o tempo (em segundos) de execução do algoritmo de ordenação passado.
-// O algoritmo tem assinatura void alg(Componente*, int, long*).
-double medirTempo(void (*algoritmo)(Componente*, int, long*), Componente comp[], int n, long *comparacoes) {
-    clock_t inicio = clock();
-    algoritmo(comp, n, comparacoes);
-    clock_t fim = clock();
-    return (double)(fim - inicio) / (double)CLOCKS_PER_SEC;
-}
-
-// Copia vetor (útil para preservar original)
-void copiarVetor(Componente dest[], Componente src[], int n) {
-    for (int i = 0; i < n; i++) dest[i] = src[i];
-}
-
-// Remove \n final de fgets e protege contra overflow
-void limparString(char s[], int tamanho) {
-    s[tamanho-1] = '\0'; // garante terminação
-    size_t len = strlen(s);
-    if (len > 0 && s[len-1] == '\n') s[len-1] = '\0';
+// Exibe menu de ações
+void menu() {
+    printf("\n--- Opções de ação ---\n");
+    printf("1 - Jogar peça (dequeue)\n");
+    printf("2 - Inserir nova peça (enqueue)\n");
+    printf("0 - Sair\n");
 }
